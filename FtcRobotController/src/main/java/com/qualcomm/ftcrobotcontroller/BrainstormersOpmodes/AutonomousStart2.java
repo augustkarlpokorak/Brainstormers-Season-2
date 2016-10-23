@@ -2,7 +2,7 @@ package com.qualcomm.ftcrobotcontroller.BrainstormersOpmodes;
 /**
  * contains all the code to run Autonomous, it has no inherent side
  */
-public abstract class AutonomousStart2 extends AutonomousMethods {
+public abstract class AutonomousStart2 extends AdvancedMethods {
     /**
      * run all other functions to perform autonomous
      * @param turnDirectionInput 1=blue -1=red
@@ -17,20 +17,18 @@ public abstract class AutonomousStart2 extends AutonomousMethods {
         getRobotConfig();
 
         //Configure and Reset.
-        run_using_encoders();
-        reset_drive_encoders();
-        gyroSensor.calibrate();
-        climberDumperB.setPosition(0);
+        runUsingEncoders();
+        resetDriveEncoders();
+        //gyroSensor.calibrate();
+        climberDumper.setPosition(0);
         //  climberDumperR.setPosition(1);
-        armAngle1.setPosition(0.5);
-        armAngle2.setPosition(0.5);
         sideArmL.setPosition(0.75);
         sideArmR.setPosition(0);
         doorL.setPosition(0.3);
         doorR.setPosition(0.8);
-        beacon.setPosition(0);
+        beaconR.setPosition(0);
         debDumper.setPosition((turnDirection + 1) / 2);
-        startCam();
+        cameraController.startBackCam();
         sleep(5000);
         telemetry.addData("Init", "done");
         while (!gamepad1.a) {
@@ -47,13 +45,13 @@ public abstract class AutonomousStart2 extends AutonomousMethods {
 
 
         waitForStart(); //everything before this happens when you press init
-        beacon.setPosition(1);
+        beaconR.setPosition(1);
         sleep(300);
         sleep(delay);
         collector.setPower(-0.7);
 
         //collector.setPower(-1);
-        drive(2000, .4, false, false, 0);
+    /*    drive(2000, .4, false, false, 0);
         if (turnDirectionInput == 1){
             turnTo(40, 0);
         }
@@ -79,8 +77,8 @@ public abstract class AutonomousStart2 extends AutonomousMethods {
         collector.setPower(0);
         driveUntilUltra(30, 0.1, 500);
         sleep (700);
-        int leftred = leftRed();
-        int rightred = rightRed();
+        int leftred = cameraController.getLeftRed();
+        int rightred = cameraController.getRightRed();
         telemetry.addData("Colors", "Left " + leftred/1000 + " Right: " + rightred/1000);
         //Added Sleep  to look at values
         if(leftred>rightred)
@@ -96,9 +94,9 @@ public abstract class AutonomousStart2 extends AutonomousMethods {
 
         sleep(500);
         driveUntilUltra(15, 0.1, 500);
-        climberDumperB.setPosition(1);
+        climberDumper.setPosition(1);
         sleep(1000);
-        climberDumperB.setPosition(0);
+        climberDumper.setPosition(0);
         drive(500, -0.25, false, false, 0);
         beacon.setPosition(0.9);
         turnTo(-170, 1);
@@ -130,7 +128,7 @@ public abstract class AutonomousStart2 extends AutonomousMethods {
         drive(10000, -0.7, false, false, 0);
 
 
-        telemetry.addData("Red, Blue", " " + colorSensor2.blue() + " " + colorSensor2.red());
+        telemetry.addData("Red, Blue", " " + colorSensor.blue() + " " + colorSensor.red());
         sleep(100);
         waitOneFullHardwareCycle();
     }
@@ -145,6 +143,7 @@ public abstract class AutonomousStart2 extends AutonomousMethods {
         long end=System.currentTimeMillis();
         telemetry.addData("timing", Long.toString(end-start));
         sleep(150000);
+        */
     }
 }
 

@@ -4,7 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorController;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.hardware.TouchSensor;
+import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.util.Range;
 
 /**
@@ -12,8 +12,12 @@ import com.qualcomm.robotcore.util.Range;
  */
 public abstract class TeleOpOctopus extends OpMode {
 
+    //Drive
+    final int RED = -1;
+    final int BLUE = 1;
 
-    //drive
+    int minpullup = 0;
+
     /**
      * front left drive motor
      */
@@ -31,35 +35,23 @@ public abstract class TeleOpOctopus extends OpMode {
      */
     DcMotor fr;
     /**
-     * the forwards backwards power
+     * main drivers forwards backwards power
      */
-    float YPower;
+    float yPower;
     /**
-     * the rotational power
+     * main drivers pivoting power
      */
-    float rotPower;
-    /**
-     * the arm's last value
-     */
-    int oldarm;
+    float xPower;
 
-    //scoring
+    //Scoring
     /**
      * the motor that powers the collector
      */
     DcMotor collect;
     /**
-     * arm angler 1
+     * the servo which controls the sliding dumpingBlock block
      */
-    Servo armAngle1;
-    /**
-     * arm angler 2
-     */
-    Servo armAngle2;
-    /**
-     * the servo which controls the sliding dumper block
-     */
-    Servo dumper;
+    Servo dumpingBlock;
     /**
      * the right hopper door control servo
      */
@@ -73,6 +65,10 @@ public abstract class TeleOpOctopus extends OpMode {
      */
     Servo armHook;
     /**
+     * servo that hits the all clear symbol when we are ready to hang
+     */
+    Servo allClear;
+    /**
      * pull up control motor 1
      */
     DcMotor pullUp1;
@@ -83,11 +79,11 @@ public abstract class TeleOpOctopus extends OpMode {
     /**
      * extender control motor
      */
-    DcMotor ext;
+    DcMotor armAngleMotor;
     /**
      * the servo that controls the climber dumping arm for the blue side
      */
-    Servo clmbrDmprB;
+    Servo climberDumper;
     /**
      * left side arm control servo
      */
@@ -95,19 +91,20 @@ public abstract class TeleOpOctopus extends OpMode {
     /**
      * Arm that presses the beacon
      */
-    Servo beacon;
+    Servo beaconR;
+    Servo beaconL;
     /**
      * right side arm control servo
      */
     Servo sideArmR;
     /**
-     * lock mech for the hanging
-     */
-    Servo lock;
-    /**
-     * second lock mech
+     * lock1 mech for the hanging
      */
     Servo lock1;
+    /**
+     * second lock1 mech
+     */
+    Servo lock2;
     /**
      * how much the robot should be slowed by
      * higher=slower
@@ -122,38 +119,40 @@ public abstract class TeleOpOctopus extends OpMode {
     /**
      * power of {@link #fr} which can be altered
      */
-    float FRpower;
+    float frPower;
     /**
      * power of {@link #br} which can be altered
      */
-    float BRpower;
+    float brPower;
     /**
      * power of {@link #fl} which can be altered
      */
-    float FLpower;
+    float flPower;
     /**
      * power of {@link #bl} which can be altered
      */
-    float BLpower;
+    float blPower;
     /**
      * the value of {@link #gamepad1} joystick 1 y
-     * later written to {@link #YPower}
+     * later written to {@link #yPower}
      */
-    float YVal;
+    float yVal;
     /**
      * the value of {@link #gamepad1} joystick 2 x
-     * latter written to {@link #rotPower}
+     * latter written to {@link #xPower}
      */
-    float rotVal;
-    //Sensing
-    /**
-     * this is pressed when the arm is fully retracted
-     * it is used by {@link #processArm()}
-     */
-    TouchSensor extStop;
+    float xVal;
+
+    ColorSensor colorSensor;
+    AdafruitIMUmethods adaFruitGyro;
 
     boolean wasDown=false;
     boolean lockDown=false;
+
+    /**
+     * This variable keeps track of the robots starting position on the ramp to make sure that we have a correct offset
+     */
+    double gyroOffset=0;
 
     /**
      * this maps all of our variables to the hardware
@@ -161,6 +160,10 @@ public abstract class TeleOpOctopus extends OpMode {
      */
     public void init(int sideInput) {
         side=sideInput;
+
+        adaFruitGyro = new AdafruitIMUmethods(this);
+        colorSensor = hardwareMap.colorSensor.get("cs2");
+
 
         fr = hardwareMap.dcMotor.get("fr");
         fl = hardwareMap.dcMotor.get("fl");
@@ -170,33 +173,48 @@ public abstract class TeleOpOctopus extends OpMode {
         doorR = hardwareMap.servo.get("doorR");
         doorL = hardwareMap.servo.get("doorL");
         collect = hardwareMap.dcMotor.get("collect");
-        armAngle1 = hardwareMap.servo.get("armAngle1");
-        armAngle2 = hardwareMap.servo.get("armAngle2");
-        dumper = hardwareMap.servo.get("dumper");
+        dumpingBlock = hardwareMap.servo.get("dumper");
         pullUp1 = hardwareMap.dcMotor.get("pullUp1");
         pullUp2 = hardwareMap.dcMotor.get("pullUp2");
-        ext = hardwareMap.dcMotor.get("ext");
-        clmbrDmprB = hardwareMap.servo.get("climberDumper");
+        armAngleMotor = hardwareMap.dcMotor.get("ext");
+        climberDumper = hardwareMap.servo.get("climberDumper");
         sideArmL = hardwareMap.servo.get("sideArmL");
         sideArmR = hardwareMap.servo.get("sideArmR");
-        beacon = hardwareMap.servo.get("beacon");
-        extStop = hardwareMap.touchSensor.get("extStop");
+        beaconR = hardwareMap.servo.get("beacon right");
+        beaconL = hardwareMap.servo.get("beacon left");
         armHook = hardwareMap.servo.get("armHook");
-        lock = hardwareMap.servo.get("lock");
         lock1 = hardwareMap.servo.get("lock1");
+        lock2 = hardwareMap.servo.get("lock2");
+        allClear = hardwareMap.servo.get("allClear");
 
-        ext.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
-        ext.setMode(DcMotorController.RunMode.RESET_ENCODERS);
-        pullUp1.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+        armAngleMotor.setMode(DcMotorController.RunMode.RESET_ENCODERS);
+        armAngleMotor.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+
         pullUp1.setMode(DcMotorController.RunMode.RESET_ENCODERS);
+        pullUp2.setMode(DcMotorController.RunMode.RESET_ENCODERS);
 
-        oldarm = 0;
-        lock.setPosition(1);
-        lock1.setPosition(0);
-        clmbrDmprB.setPosition(0);
-        beacon.setPosition(0);
+        pullUp2.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+        pullUp1.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+
+
+        lock1.setPosition(1);
+        lock2.setPosition(0);
+        climberDumper.setPosition(0.5);
+        beaconR.setPosition(1);
+        beaconL.setPosition(0);
         sideArmL.setPosition(0.8);
         sideArmR.setPosition(0.05);
+        doorR.setPosition(0.85);
+        doorL.setPosition(0.15);
+        dumpingBlock.setPosition(0.5);
+        armHook.setPosition(0.3);
+        climberDumper.setPosition(0);
+        allClear.setPosition(0.5);
+
+        while (!adaFruitGyro.initDone) {
+            adaFruitGyro.initIMU();
+        }
+        telemetry.addData("Initialization Done", "");
     }
 
     /**
@@ -206,11 +224,26 @@ public abstract class TeleOpOctopus extends OpMode {
      */
     @Override
     public void loop() {
-        drive();
+        if (System.currentTimeMillis()-oldTime<100){
+            climberDumper.setPosition(1);
+        } else{
+            climberDumper.setPosition(0.5);
+        }
+        pullUp1.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+        pullUp2.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+
+
         attachments();
+        drive();
         hang();
-        telemetry.addData("Ext", "" + ext.getCurrentPosition());
+        telemetry.addData("Arm Angle", "" + armAngleMotor.getCurrentPosition());
         telemetry.addData("PullUp1", "" + pullUp1.getCurrentPosition());
+        telemetry.addData("min", "min" + minpullup);
+    }
+    long oldTime;
+    @Override
+    public void start(){
+        oldTime=System.currentTimeMillis();
     }
 
     /**
@@ -218,39 +251,38 @@ public abstract class TeleOpOctopus extends OpMode {
      */
     @Override
     public void stop() {
-
     }
 
     /**
      * this processes inputs directly related to moving the wheels
-     * @see #getInput()
+     * @see #readInput()
      * @see #processInput()
      * @see #slowRobot()
-     * @see #setPower()
+     * @see #powerRobot()
      */
     private void drive() {
-        getInput();
+        readInput();
         processInput();
         slowRobot();
-        setPower();
+        powerRobot();
     }
 
     /**
      * this processes all inputs that do not affect the movement of the wheels
+     * basically all of these functions are controlled by Driver 2
      * @see #collector()
      * @see #dumping()
-     * @see #climberDumper()
-     * @see #processArm()
+     * @see #armControl()
      * @see #angleArm()
      */
     public void attachments() {
         collector();
         dumping();
-        climberDumper();
         sideArm();
-        processArm();
+        armControl();
         hook();
         angleArm();
+        allClearSymbol();
     }
 
     /**
@@ -261,9 +293,11 @@ public abstract class TeleOpOctopus extends OpMode {
     private void collector() {
         if (gamepad2.right_bumper) {
             collect.setPower(1);
+            gyroOffset = -adaFruitGyro.getRoll();
             //collection out
         } else if (gamepad2.left_bumper) {
             collect.setPower(-0.4);
+            gyroOffset = -adaFruitGyro.getRoll();
             //resting
         } else collect.setPower(0);
     }
@@ -271,60 +305,105 @@ public abstract class TeleOpOctopus extends OpMode {
 
     /**
     * pressing {@link #gamepad2} dpad right while blue or {@link #gamepad2} dpad left while red
-     * slides {@link #dumper} across the hopper, bringing the debris with it
+     * slides {@link #dumpingBlock} across the hopper, bringing the debris with it
     * as this happens the proper release door ({@link #doorR} or {@link #doorL})  opens
     */
+
+    int moveCount = 0;
+    int oldCount = 51;
+    int moveCountAllClear = 0;
+    int oldCountAllClear = 51;
+
+    final int MINCOUNT =  51;
+    final int MAXMOVECOUNT = 250;
+
+
+
+    /**
+     * configures our dumping system based on what team we're on
+     */
     private void dumping() {
-        if (side == 1) {
-            // blue side
-            if (gamepad2.dpad_right) {
-                dumper.setPosition(0);
+        telemetry.addData("Moving", "move: " + moveCount + "old: " + oldCount);
+        if (side == BLUE) {
+            if (gamepad2.dpad_right || gamepad2.right_stick_x > .15) {
                 doorR.setPosition(0.3);
-            } else { //default position
-                dumper.setPosition(0.4);
+            }
+            else {
                 doorR.setPosition(0.85);
                 doorL.setPosition(0.15);
             }
-        } else {
-            // red side
-            if (gamepad2.dpad_left) {
-                dumper.setPosition(0.4);
+        }
+        else if (side == RED) {
+            if (gamepad2.dpad_left || gamepad2.right_stick_x < -.15) {
                 doorL.setPosition(0.7);
-            } else { //default position
-                dumper.setPosition(0);
+            }
+            else {
+                doorR.setPosition(0.85);
                 doorL.setPosition(0.15);
-                doorR.setPosition(0.95);
+            }
+        }
+
+
+         if (side == BLUE) {
+            if (gamepad2.dpad_right) {
+                dumpingBlock.setPosition(0);
+                moveCount++;
+
+                if(moveCount > MAXMOVECOUNT){
+                    moveCount = MAXMOVECOUNT;
+                }
+
+                oldCount = moveCount;
+            } else if (gamepad2.dpad_left) {
+                dumpingBlock.setPosition(1);
+
+            }
+            else {
+                if(moveCount > 0 && gamepad2.right_stick_x < .15){
+                    dumpingBlock.setPosition(1);
+                    moveCount--;
+                }
+                else {
+                    dumpingBlock.setPosition(0.5);
+                    oldCount = MINCOUNT;
+                }
+            }
+
+
+        } else if(side == RED) {
+            if (gamepad2.dpad_left) {
+                moveCount++;
+                dumpingBlock.setPosition(1);
+
+                if(moveCount > MAXMOVECOUNT){
+                    moveCount = MAXMOVECOUNT;
+                }
+                oldCount = moveCount;
+            }
+            else if (gamepad2.dpad_right) {
+                dumpingBlock.setPosition(0);
+            }
+            else {
+                if(moveCount > 0 && gamepad2.right_stick_x > -.15){
+                    dumpingBlock.setPosition(0);
+                    moveCount--;
+                }
+                else {
+                    dumpingBlock.setPosition(0.5);
+                    oldCount = MINCOUNT;
+                }
             }
         }
     }
 
-    /**
-     * dumps the climber if the {@link #gamepad2} y button is pressed
-     */
-    private void climberDumper() {
-        // climber dumper
-            if(gamepad2.y) {
-                clmbrDmprB.setPosition(1);
-               // clmbrDmprR.setPosition(1);
-            } else{
-                clmbrDmprB.setPosition(0.1);
-                beacon.setPosition(1);
-               // clmbrDmprR.setPosition(1);
-            }
-    }
 
     /**
-     * runs everything involving extending and retracting the main dumper arm {@link #ext} and synchronizing it with {@link #pullUp1} and {@link #pullUp2}
+     * runs everything involving extending and retracting the main dumpingBlock arm {@link #armAngleMotor} and synchronizing it with {@link #pullUp1} and {@link #pullUp2}
      * the arm is extended by {@link #gamepad2} right trigger and retracted by {@link #gamepad2} left trigger
      * {@link #gamepad2} a button tightens the arm
      * if the arm is fully retracted, the arm cannot retract more became {@link #extStop} is pressed
      */
-
-    private void processArm() {
-        /**
-         * if the left trigger is pressed, the arm is retracted
-         */
-        //brings arm in
+    private void armControl() {
         if (gamepad1.y) {
             if (gamepad1.dpad_down && !wasDown) {
                 wasDown = true;
@@ -334,152 +413,98 @@ public abstract class TeleOpOctopus extends OpMode {
                 wasDown = false;
             }
             if (lockDown) {
-                lock.setPosition(0.1);
-                lock1.setPosition(1);
-            } else {
-                lock.setPosition(1);
                 lock1.setPosition(0);
+                lock2.setPosition(1);
+            } else {
+                lock1.setPosition(1);
+                lock2.setPosition(0);
             }
-            if (lock1.getPosition()>0.9)
-                clmbrDmprB.setPosition(0.5);
-
-            if (side == 1) {
-                sideArmL.setPosition(0.8);
-                sideArmR.setPosition(1);
-            } else if(side==-1) {
-                sideArmL.setPosition(0);
-                sideArmR.setPosition(0.05);
+            if (lock2.getPosition()>0.9)
+                beaconL.setPosition(0.5);
+            else {
+                beaconL.setPosition(0);
             }
         }
-
-
-        //sends arm in
-        if (gamepad2.left_trigger != 0) {
-            sideArmL.setPosition(0.5);
-            sideArmR.setPosition(0.5);
-            pullUp1.setPower(1);
-            pullUp2.setPower(-1);
-            ext.setPower(1);
-            //oldarm = ext.getCurrentPosition();
+        else if (gamepad2.left_trigger != 0) {
+            pullUp1.setPower(gamepad2.left_trigger);
+            pullUp2.setPower(-gamepad2.left_trigger);
         }
-        //sends arm out
-
-        /**
-         * if the right trigger is pressed, the arm is extended
-         */
-        else if (gamepad2.right_trigger != 0) {
-            sideArmL.setPosition(0.5);
-            sideArmR.setPosition(0.5);
-            ext.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
-            pullUp1.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
-
-            ext.setPower(-1);
-            //oldarm = ext.getCurrentPosition();
-            if (pullUp1.getCurrentPosition()>ext.getCurrentPosition()-200) {
-                //pullUp1.setPower(-0.13);
-                //pullUp2.setPower(0.13);
-                pullUp1.setPower(-0.5);
-                pullUp2.setPower(0.5);
+        else if ((gamepad1.right_trigger==1  || (adaFruitGyro.getRoll() + gyroOffset) > 2 )&& fr.getPower()>0) {
+            if (Math.abs(pullUp1.getCurrentPosition()) < 2500  ) {
+                pullUp1.setPower(-1);
+                pullUp2.setPower(1);
             } else {
                 pullUp1.setPower(0);
                 pullUp2.setPower(0);
             }
-        } else {
-            ext.setPower(0);
+        }
+        else if (gamepad2.right_trigger != 0) {
+            pullUp1.setPower(-gamepad2.right_trigger);
+            pullUp2.setPower(gamepad2.right_trigger);
+        }
+        else if (!gamepad1.y) {
             pullUp1.setPower(0);
             pullUp2.setPower(0);
-            //oldarm = ext.getCurrentPosition();
-        }
-
-        /**
-         * if the arm is fully retracted this stops it from trying to retract further
-         * it is controlled by touch sensor {@link #extStop}
-         */
-        if (extStop.isPressed() && gamepad2.left_trigger != 0) {
-            ext.setPower(0);
-            pullUp1.setPower(0);
-            pullUp2.setPower(0);
-            oldarm = ext.getCurrentPosition();
-            ext.setMode(DcMotorController.RunMode.RESET_ENCODERS);
-            pullUp1.setMode(DcMotorController.RunMode.RESET_ENCODERS);
-        }
-
-        /**
-         * if a is pressed, this tightens the pull up motor
-         */
-        //tension the pullUp motor
-        if (gamepad2.a) {
-            pullUp1.setPower(1);
-            pullUp2.setPower(-1);
-        }
-        /**
-         * if b is pressed, this loosens the pull up motor
-         */
-        if (gamepad2.b) {
-            pullUp1.setPower(-0.2);
-            pullUp2.setPower(0.2);
         }
     }
 
     /**
-     * sets the angle of the arm
+     * sets the angle of the arm allowing us to hang
      * this is controlled by {@link #gamepad2} left stick y axis
      */
     private void angleArm() {
-        if(gamepad2.left_stick_y > .5) {
-            armAngle1.setPosition(1);
-        }
-        else if(gamepad2.left_stick_y < -.5) {
-            armAngle1.setPosition(0);
-            sideArmR.setPosition(0.6);
-            sideArmL.setPosition(0.2);
-        } else {
-            armAngle1.setPosition(0.5);
-        }
-
-        if(gamepad2.right_stick_y > .5) {
-            armAngle2.setPosition(1);
-        }
-        else if(gamepad2.right_stick_y < -.5) {
-            armAngle2.setPosition(0);
-            sideArmR.setPosition(0.6);
-            sideArmL.setPosition(0.2);
-        } else {
-            armAngle2.setPosition(0.5);
+        if (!gamepad1.y) {
+            if ((gamepad2.left_stick_y > .03 && armAngleMotor.getCurrentPosition()<0) || gamepad2.a) {
+                armAngleMotor.setPower(1);
+            } else if (gamepad2.left_stick_y < -.03) {
+                armAngleMotor.setPower(-1);
+            } else {
+                armAngleMotor.setPower(0);
+            }
         }
     }
 
     /**
-     * Makes the hook go out
+     * Makes the hook on the end of the arm go out to allow us to hang
      */
     private void hook(){
         if (gamepad1.left_bumper){
             armHook.setPosition(0.6);
-        } else {
-            armHook.setPosition(0.1);
+        }
+        else {
+            armHook.setPosition(0.2);
         }
     }
 
-
+    /**
+     * extends our side wings so we can hit the climber releases when we go up the ramp
+     */
     private void sideArm(){
         if (fr.getPower()>0) {
             if (side == 1) {
-                if (gamepad1.right_bumper || gamepad1.right_trigger != 0) {
+                if (gamepad1.right_trigger != 0  || (adaFruitGyro.getRoll() + gyroOffset) > 3.5 || gamepad1.y) {
                     sideArmL.setPosition(0.8);
-                    sideArmR.setPosition(1);//0.8
-                } else {
-                    sideArmL.setPosition(0.8);
-                    sideArmR.setPosition(0.05);
+                    sideArmR.setPosition(1);
                 }
-            } else if (side == -1) {
-                if (gamepad1.right_bumper || gamepad1.right_trigger != 0) {
-                    sideArmL.setPosition(0);//0.1
-                    sideArmR.setPosition(0.05);
-                } else {
+                else {
                     sideArmL.setPosition(0.8);
                     sideArmR.setPosition(0.05);
                 }
             }
+            else if (side == -1) {
+                if (gamepad1.right_trigger != 0 || (adaFruitGyro.getRoll() + gyroOffset) > 3.5 || gamepad1.y) {
+                    sideArmL.setPosition(0);
+                    sideArmR.setPosition(0.05);
+                }
+                else {
+                    sideArmL.setPosition(0.8);
+                    sideArmR.setPosition(0.05);
+                }
+            }
+        }
+        else if (gamepad2.right_trigger !=0 || gamepad2.left_trigger !=0){
+            sideArmL.setPosition(0.5);
+            sideArmR.setPosition(0.5);
         }
         else {
             sideArmL.setPosition(0.8);
@@ -487,26 +512,26 @@ public abstract class TeleOpOctopus extends OpMode {
         }
     }
 
-
+    /**
+     * we autonomized hang to put less stress on our drivers and hopefully let us hang 100% of the time
+     */
     private void hang(){
         if (gamepad1.y) {
-            pullUp1.setPower(0.8);
-            pullUp2.setPower(-0.8);
-            if (ext.getCurrentPosition()<0)
-                ext.setPower(.5);
-            else
-                ext.setPower(0);
-            oldarm = ext.getCurrentPosition();
+            pullUp1.setPower(1);
+            pullUp2.setPower(-1);
+            if (armAngleMotor.getCurrentPosition()<0) {
+                armAngleMotor.setPower(1);
+            }
+            else {
+                armAngleMotor.setPower(0);
+            }
 
-            fr.setPower(.75);
-            br.setPower(.75);
-            fl.setPower(-.75);
-            bl.setPower(-.75);
+            fr.setPower(1);
+            br.setPower(1);
+            fl.setPower(-1);
+            bl.setPower(-1);
 
-            telemetry.addData("hang", "" + ext.getCurrentPosition());
-
-            armAngle1.setPosition(1);
-            armAngle2.setPosition(1);
+            telemetry.addData("Arm Angle", "" + armAngleMotor.getCurrentPosition());
         }
     }
 
@@ -517,9 +542,9 @@ public abstract class TeleOpOctopus extends OpMode {
      * {@link #gamepad1} left stick y axis controls forwards and backwards
      * {@link #gamepad1} right stick x axis controls rotation
      */
-    private void getInput() {
-        YVal = gamepad1.left_stick_y;
-        rotVal = gamepad1.right_stick_x;
+    private void readInput() {
+        yVal = gamepad1.left_stick_y;
+        xVal = gamepad1.right_stick_x;
     }
 
     /**
@@ -527,16 +552,16 @@ public abstract class TeleOpOctopus extends OpMode {
      * it also  the input values to avoid errors
      */
     private void processInput() {
-        YPower = Range.clip(YVal, -1, 1);
-        rotPower = Range.clip(rotVal, -1, 1);
+        yPower = Range.clip(yVal, -1, 1);
+        xPower = Range.clip(xVal, -1, 1);
 
         /**
          * combines the rotation and speed together
          */
-        FRpower = YPower + rotPower;
-        BRpower = YPower + rotPower;
-        FLpower = -YPower + rotPower;
-        BLpower = -YPower + rotPower;
+        frPower = yPower + xPower;
+        brPower = yPower + xPower;
+        flPower = -yPower + xPower;
+        blPower = -yPower + xPower;
     }
 
     /**
@@ -547,24 +572,46 @@ public abstract class TeleOpOctopus extends OpMode {
      * @see #fl
      * @see #bl
      */
-    private void setPower() {
-        fr.setPower(Range.clip(FRpower, -1, 1)/driveMod);
-        br.setPower(Range.clip(BRpower, -1, 1)/driveMod);
-        fl.setPower(Range.clip(FLpower, -1, 1)/driveMod);
-        bl.setPower(Range.clip(BLpower, -1, 1)/driveMod);
+    private void powerRobot() {
+        if (!gamepad1.y){
+            fr.setPower(Range.clip(frPower, -1, 1) * driveMod);
+            br.setPower(Range.clip(brPower, -1, 1) * driveMod);
+            fl.setPower(Range.clip(flPower, -1, 1) * driveMod);
+            bl.setPower(Range.clip(blPower, -1, 1) * driveMod);
+        }
     }
 
     /**
      * if {@link #gamepad1} right trigger is pressed, it causes the robot to slow down
+     * used for climbing the ramp
      */
     private void slowRobot() {
-        if (gamepad1.right_trigger == 1 && fr.getPower()>0){
-            driveMod = 1.2f;
-        }else if (gamepad1.right_trigger == 1 && fr.getPower()<0) {
-            driveMod = 2.4f;
+        telemetry.addData("GyroPitch", " " + (adaFruitGyro.getRoll() + gyroOffset));
+        if(gamepad1.right_trigger == 1 || ((adaFruitGyro.getRoll() + gyroOffset) > 6 && (adaFruitGyro.getRoll() + gyroOffset) < 50)) {
+
+            if (fr.getPower() > 0) {
+                driveMod = 1f;
+
+            }
+            else if (fr.getPower() < 0) {
+                driveMod = 0.3f;
+
+            }
         }
         else
             driveMod = 1;
+    }
+
+    private void allClearSymbol() {
+        if (gamepad2.x) {
+            allClear.setPosition(1);
+        } else if (gamepad2.y){
+            allClear.setPosition(0);
+
+        } else {
+            allClear.setPosition(0.5);
+        }
+
     }
 }
 

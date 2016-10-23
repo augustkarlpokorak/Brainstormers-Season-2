@@ -31,6 +31,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
 
 package com.qualcomm.ftcrobotcontroller.BrainstormersOpmodes;
 
+import com.qualcomm.ftcrobotcontroller.NewStructure.AutoBlue;
+import com.qualcomm.ftcrobotcontroller.NewStructure.AutoRed;
+import com.qualcomm.ftcrobotcontroller.NewStructure.NewAutonomous;
+import com.qualcomm.ftcrobotcontroller.NewStructure.NewTeleop;
+import com.qualcomm.ftcrobotcontroller.NewStructure.TeleopBlue;
+import com.qualcomm.ftcrobotcontroller.NewStructure.TeleopRed;
 import com.qualcomm.robotcore.eventloop.opmode.OpModeManager;
 import com.qualcomm.robotcore.eventloop.opmode.OpModeRegister;
 
@@ -47,17 +53,18 @@ public class FtcOpModeRegister implements OpModeRegister {
      */
     public void register(OpModeManager manager) {
 
-        
-        manager.register("Sensor Test", sensorTest.class);
-        //manager.register("color test", ColorTest.class);
-        manager.register("TeleOp Octopus Blue", TeleOpBlue.class);
-        manager.register("TeleOp Octopus Red", TeleOpRed.class);
-        manager.register("Auto-Blue Octopus", AutonomousBlueBotmk2.class);
-       // manager.register("teleoptest" , TeleopTest.class);
-        manager.register("Auto-Red Octopus", AutonomousRedBotmk2.class);
-        //manager.register("ramp detection", rampDetection.class);
-        //manager.register("autonomous test", AutonomousTesting.class);
-        manager.register("new gyo test", AdafruitIMUmanager.class);
 
+        manager.register("Sensor Test", sensorTest.class);
+        manager.register("TeleOp Blue", TeleopBlue.class);
+        manager.register("TeleOp Red", TeleopRed.class);
+        manager.register("Autonomous Blue", AutoBlue.class);
+        manager.register("Autonomous Red", AutoRed.class);
+
+        //manager.register("TeleOp Octopus Blue", TeleOpBlue.class);
+       // manager.register("TeleOp Octopus Red", TeleOpRed.class);
+        //manager.register("Auto-Blue Octopus", AutonomousBlueBotmk2.class);
+        //manager.register("Auto-Red Octopus", AutonomousRedBotmk2.class);
+
+        manager.register("Block Detection Test", CameraDebrisCounter.class);
     }
 }

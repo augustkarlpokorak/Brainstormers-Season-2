@@ -62,8 +62,10 @@ import com.qualcomm.ftccommon.FtcRobotControllerService.FtcRobotControllerBinder
 import com.qualcomm.ftccommon.LaunchActivityConstantsList;
 import com.qualcomm.ftccommon.Restarter;
 import com.qualcomm.ftccommon.UpdateUI;
-import com.qualcomm.ftcrobotcontroller.BrainstormersOpmodes.CameraOp;
+import com.qualcomm.ftcrobotcontroller.BrainstormersOpmodes.BackCameraController;
+import com.qualcomm.ftcrobotcontroller.BrainstormersOpmodes.FrontCameraController;
 import com.qualcomm.ftcrobotcontroller.BrainstormersOpmodes.FtcOpModeRegister;
+import com.qualcomm.ftcrobotcontroller.opmodes.PushBotAuto;
 import com.qualcomm.hardware.HardwareFactory;
 import com.qualcomm.robotcore.hardware.configuration.Utility;
 import com.qualcomm.robotcore.util.Dimmer;
@@ -180,7 +182,7 @@ public class FtcRobotControllerActivity extends Activity{
         wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "");
 
         hittingMenuButtonBrightensScreen();
-        camera = openBackFacingCamera();
+        theCamera=openBackFacingCamera();
 
         if (USE_DEVICE_EMULATION) {
             HardwareFactory.enableDeviceEmulation();
@@ -398,9 +400,16 @@ public class FtcRobotControllerActivity extends Activity{
         });
     }
 
-    public Camera camera;
+    public Camera theCamera;
 
-    private Camera openFrontFacingCamera() {
+
+    public Camera openFrontFacingCamera() {
+        if (theCamera!=null) {
+            theCamera.setPreviewCallback(null);
+            theCamera.stopPreview();
+            theCamera.release();
+            theCamera = null;
+        }
         int cameraId = -1;
         Camera cam = null;
         int numberOfCameras = Camera.getNumberOfCameras();
@@ -417,10 +426,18 @@ public class FtcRobotControllerActivity extends Activity{
         } catch (Exception e) {
 
         }
+        theCamera=cam;
         return cam;
     }
 
-    private Camera openBackFacingCamera() {
+    public Camera openBackFacingCamera() {
+        if (theCamera!=null) {
+            //context.preview.getHolder().removePreview(context.preview);
+            theCamera.setPreviewCallback(null);
+            theCamera.stopPreview();
+            theCamera.release();
+            theCamera = null;
+        }
         int cameraId = -1;
         Camera cam = null;
         int numberOfCameras = Camera.getNumberOfCameras();
@@ -437,10 +454,22 @@ public class FtcRobotControllerActivity extends Activity{
         } catch (Exception e) {
 
         }
+        theCamera=cam;
         return cam;
     }
 
-    public void initPreview(final Camera camera, final CameraOp context, final Camera.PreviewCallback previewCallback) {
+    public void initPreview(final Camera camera, final BackCameraController context, final Camera.PreviewCallback previewCallback) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                context.preview = new com.qualcomm.ftcrobotcontroller.BrainstormersOpmodes.CameraPreview(FtcRobotControllerActivity.this, camera, previewCallback);
+                FrameLayout previewLayout = (FrameLayout) findViewById(R.id.previewLayout);
+                previewLayout.addView(context.preview);
+                //previewLayout.setRotation(90);
+            }
+        });
+    }
+    public void initPreview(final Camera camera, final FrontCameraController context, final Camera.PreviewCallback previewCallback) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
